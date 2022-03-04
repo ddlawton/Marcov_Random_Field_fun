@@ -1,8 +1,9 @@
 library(tidyverse)
 require('rgdal')
 library(sf)
-library(spdep)
-library(mgcv)
+library(gganimate)
+library(rnaturalearth)
+
 
 polygons = readOGR(dsn='./shapefiles/US_counties_2012_geoid.shp',layer='US_counties_2012_geoid',stringsAsFactors=F,verbose=F)
 con = file('./AgCensus_MasterDataFrame.txt','r')
@@ -22,73 +23,62 @@ print(noquote(paste('Number of counties:',nrow(counties@data),sep=' ')))
 print(noquote(paste('Number of variables:',ncol(counties@data),sep=' ')))
 
 
-counties2 <- counties %>% st_as_sf()
+counties2 <- counties %>% st_as_sf() %>% as_tibble()
 
-counties2 %>%
-  group_by(FIPS) %>%
-  summarize(n=n()) %>%
-  filter(n>1)
+names(counties2)
 
 counties3 <- counties2 %>%
   pivot_longer(
     cols=c(1:475),
     names_to = c(".value", "Year"),
     names_pattern = "(^.{0,3})(.{4}$)"
-  ) %>% select(Year,geometry,FIPS,Crn)
+  )  %>%
+  pivot_longer(
+    cols=c(12:36),
+    names_to = "crop",
+    values_to = "area"
+  )
 
-counties3_sp <- as(counties3, 'Spatial')
-counties2_sp <- as(counties2, 'Spatial')
+counties4 <- counties3 %>% mutate(crop = factor(crop))
 
-crn <- counties3 
+crops <- levels(unique((factor(counties3$crop))))
 
-nb <- poly2nb(counties2_sp, row.names = counties2$FIPS)
-names(nb) <- attr(nb, "region.id")
-
-counties4 <- counties3 %>% mutate(FIPS = factor(FIPS), Year = as.integer(Year)) %>%
-  filter(Year == 2017)
-
-
-
-counties1year <- counties2 %>% st_as_sf() %>% filter(year == 2017)
-
-names(counties2)
+cotton <- counties4 %>% filter(crop == "Ctn")
+corn <- counties4 %>% filter(crop == "Crn")
+soybeans <- counties4 %>% filter(crop == "Soy")
+wheat <- counties4 %>% filter(crop == "Wht")
 
 
+states <- ne_states(country="United States of America") %>% st_as_sf() %>% 
+  as_tibble() %>% filter(name != "Hawaii")
 
-
-m1 <- bam(Crn ~ s(FIPS, bs = 'mrf', xt = list(nb = nb)), # define MRF smooth
-          data = counties4,discrete=TRUE,nthreads=23,
-          family = betar())
-
-## rank 300 MRF
-m2 <- bam(Crn ~ s(FIPS, bs = 'mrf', k = 300, xt = list(nb = nb)),
-          data = counties4,discrete=TRUE,nthreads=23,
-          family = betar())
-## rank 30 MRF
-m3 <- bam(Crn ~ s(FIPS, bs = 'mrf', k = 30, xt = list(nb = nb)),
-          data = counties4,discrete=TRUE,nthreads=23,
-          family = betar())
+ggplot(states) +
+  geom_sf(aes(geometry=geometry))
 
 
 
-summary(m2)
+plots <- list()
+for (i in crops){
+  dat <- counties4 %>% filter(crop==i)
+  plots[[i]] <- dat %>%
+    mutate(Year = as.integer(Year)) %>%
+    ggplot() +
+    geom_sf(aes_string(geometry="geometry",fill="area"),color=NA) +
+    viridis::scale_fill_viridis(na.value = "transparent") +
+    theme_void()  +
+    labs(title = paste0(i," ",'Year: {frame_time}')) +
+    transition_time(Year) 
+}
+
+for(i in 1:25){
+  anim_save(file = paste("output/",i,".gif",sep=""),plots[[i]], width = 1200, height = 600)
+}
 
 
-model <- bam(Crn ~ te(FIPS, bs = c("mrf"),xt = list(FIPS = list(nb = nb))),
-                                  family=betar(), data=counties4,discrete=TRUE,nthreads=23)
 
-summary(model)
-plot(model)
+plots[[1]]
 
 
-counties4 <- transform(counties4,
-                mrfFull     = predict(model, type = 'response'))
+?anim_save()
+anim_save(file="output/Hmnchange.gif", plot)
 
-years <- c(1840,1890,1940,1992,2017)
-unique(factor(counties4$Year))
-counties4 %>%
-  filter(Year %in% years) %>%
-ggplot() +
-  geom_sf(aes(geometry = geometry,fill=mrfFull),size = 0.05) +
-  viridis::scale_fill_viridis() +
-  facet_wrap(~Year,ncol = 2)
