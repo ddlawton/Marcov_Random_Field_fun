@@ -52,10 +52,71 @@ wheat <- counties4 %>% filter(crop == "Wht")
 states <- ne_states(country="United States of America") %>% st_as_sf() %>% 
   as_tibble() %>% filter(name != "Hawaii")
 
-ggplot(states) +
-  geom_sf(aes(geometry=geometry))
+ctn <- cotton %>%
+  mutate(Year = as.integer(Year))  %>%
+  mutate(area = na_if(area, 0)) %>%
+ggplot() +
+  scale_x_continuous(limits=c(-123,-63)) +
+  scale_y_continuous(limits=c(25,50)) +
+  geom_sf(aes(geometry=geometry,fill=(area)),color=NA) +
+  geom_sf(data=states,aes(geometry=geometry),fill="transparent",color="white") +
+  viridis::scale_fill_viridis(na.value = "grey")+
+  theme_void()  +
+  labs(title = paste0("Planted area of cotton during ",'{frame_time}')) + 
+  theme(plot.title = element_text(size = 40, face = "bold")) +
+  theme(legend.position = "bottom") +
+  transition_time(Year) 
+
+crn <- corn %>%
+  mutate(Year = as.integer(Year))  %>%
+  mutate(area = na_if(area, 0)) %>%
+  ggplot() +
+  scale_x_continuous(limits=c(-123,-63)) +
+  scale_y_continuous(limits=c(25,50)) +
+  geom_sf(aes(geometry=geometry,fill=(area)),color=NA) +
+  geom_sf(data=states,aes(geometry=geometry),fill="transparent",color="white") +
+  viridis::scale_fill_viridis(na.value = "grey")+
+  theme_void()  +
+  labs(title = paste0("Planted area of corn during ",'{frame_time}')) + 
+  theme(plot.title = element_text(size = 40, face = "bold")) +
+  theme(legend.position = "bottom") +
+  transition_time(Year) 
+
+soy <- soybeans %>%
+  mutate(Year = as.integer(Year))  %>%
+  mutate(area = na_if(area, 0)) %>%
+  ggplot() +
+  scale_x_continuous(limits=c(-123,-63)) +
+  scale_y_continuous(limits=c(25,50)) +
+  geom_sf(aes(geometry=geometry,fill=(area)),color=NA) +
+  geom_sf(data=states,aes(geometry=geometry),fill="transparent",color="white") +
+  viridis::scale_fill_viridis(na.value = "grey")+
+  theme_void()  +
+  labs(title = paste0("Planted area of soybeans during ",'{frame_time}')) + 
+  theme(plot.title = element_text(size = 40, face = "bold")) +
+  theme(legend.position = "bottom") +
+  transition_time(Year) 
 
 
+wht <- wheat %>%
+  mutate(Year = as.integer(Year))  %>%
+  mutate(area = na_if(area, 0)) %>%
+  ggplot() +
+  scale_x_continuous(limits=c(-123,-63)) +
+  scale_y_continuous(limits=c(25,50)) +
+  geom_sf(aes(geometry=geometry,fill=(area)),color=NA) +
+  geom_sf(data=states,aes(geometry=geometry),fill="transparent",color="white") +
+  viridis::scale_fill_viridis(na.value = "grey")+
+  theme_void()  +
+  labs(title = paste0("Planted area of wheat during ",'{frame_time}')) + 
+  theme(plot.title = element_text(size = 40, face = "bold")) +
+  theme(legend.position = "bottom") +
+  transition_time(Year) 
+
+anim_save(file = "output/cotton.gif",ctn, width = 1200, height = 600)
+anim_save(file = "output/corn.gif",crn, width = 1200, height = 600)
+anim_save(file = "output/soybeans.gif",soy, width = 1200, height = 600)
+anim_save(file = "output/wheat.gif",wht, width = 1200, height = 600)
 
 plots <- list()
 for (i in crops){
